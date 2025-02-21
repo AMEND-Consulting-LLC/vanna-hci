@@ -32,32 +32,14 @@ This directory contains the Docker configuration for running the Vanna AI text2s
 
 ## Configuration
 
-### Environment Variables
-
-#### Core Configuration
-- `VANNA_API_KEY`: Your LLM API key (e.g., OpenAI key)
-- `VANNA_MODEL`: Model to use (default: gpt-4)
-- `VANNA_VECTOR_STORE`: Vector store type (default: chromadb)
-- `VANNA_PORT`: Port to expose the service (default: 8000)
-
-#### Vector Store Configuration
-- `VANNA_VECTOR_STORE_API_KEY`: API key for vector store (if required)
-- `VANNA_VECTOR_STORE_URL`: Vector store endpoint URL
-- `VANNA_VECTOR_STORE_NAMESPACE`: Namespace for vector store
-
-#### Database Configuration
-- `VANNA_DB_TYPE`: Database type (e.g., postgres, mysql)
-- `VANNA_DB_HOST`: Database host
-- `VANNA_DB_PORT`: Database port
-- `VANNA_DB_NAME`: Database name
-- `VANNA_DB_USER`: Database user
-- `VANNA_DB_PASSWORD`: Database password
+For detailed configuration information, including environment variables, secrets management, and validation rules, see our comprehensive [Configuration Guide](CONFIG.md).
 
 ## Directory Structure
 
 - `Dockerfile`: Multi-stage build configuration
 - `docker-compose.yml`: Service orchestration
 - `.env.template`: Environment variable template
+- `CONFIG.md`: Detailed configuration documentation
 - `README.md`: This documentation
 
 ## Volumes
@@ -99,13 +81,38 @@ docker-compose ps
 ## Security Notes
 
 1. Never commit the `.env` file
-2. Regularly update base images
-3. Use secure passwords
+2. Use Docker secrets for sensitive values (see [Configuration Guide](CONFIG.md))
+3. Regularly update base images
 4. Keep API keys confidential
+5. Follow security best practices in the configuration guide
 
 ## Maintenance
 
 1. Backup volumes regularly
 2. Monitor container logs
 3. Update dependencies as needed
-4. Check container health status 
+4. Check container health status
+5. Review configuration settings periodically
+
+## Configuration
+
+### Environment Variables
+
+#### Core Configuration
+- `VANNA_API_KEY`: Your LLM API key (e.g., OpenAI key)
+- `VANNA_MODEL`: Model to use (default: gpt-4)
+- `VANNA_VECTOR_STORE`: Vector store type (default: chromadb)
+- `VANNA_PORT`: Port to expose the service (default: 8000)
+
+#### Vector Store Configuration
+- `VANNA_VECTOR_STORE_API_KEY`: API key for vector store (if required)
+- `VANNA_VECTOR_STORE_URL`: Vector store endpoint URL
+- `VANNA_VECTOR_STORE_NAMESPACE`: Namespace for vector store
+
+#### Database Configuration
+- `VANNA_DB_TYPE`: Database type (e.g., postgres, mysql)
+- `VANNA_DB_HOST`: Database host
+- `VANNA_DB_PORT`: Database port
+- `VANNA_DB_NAME`: Database name
+- `VANNA_DB_USER`: Database user
+- `VANNA_DB_PASSWORD`: Database password 

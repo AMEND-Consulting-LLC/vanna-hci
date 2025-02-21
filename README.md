@@ -1,5 +1,3 @@
-
-
 | GitHub | PyPI | Documentation | Gurubase |
 | ------ | ---- | ------------- | -------- |
 | [![GitHub](https://img.shields.io/badge/GitHub-vanna-blue?logo=github)](https://github.com/vanna-ai/vanna) | [![PyPI](https://img.shields.io/pypi/v/vanna?logo=pypi)](https://pypi.org/project/vanna/) | [![Documentation](https://img.shields.io/badge/Documentation-vanna-blue?logo=read-the-docs)](https://vanna.ai/docs/) | [![Gurubase](https://img.shields.io/badge/Gurubase-Ask%20Vanna%20Guru-006BFF)](https://gurubase.io/g/vanna) |
@@ -38,6 +36,7 @@ These are some of the user interfaces that we've built using Vanna. You can use 
 ## Supported LLMs
 
 - [OpenAI](https://github.com/vanna-ai/vanna/tree/main/src/vanna/openai)
+- [Azure OpenAI](AZURE_CHROMADB.md) - Our implementation with ChromaDB
 - [Anthropic](https://github.com/vanna-ai/vanna/tree/main/src/vanna/anthropic)
 - [Gemini](https://github.com/vanna-ai/vanna/blob/main/src/vanna/google/gemini_chat.py)
 - [HuggingFace](https://github.com/vanna-ai/vanna/blob/main/src/vanna/hf/hf.py)
@@ -78,6 +77,8 @@ These are some of the user interfaces that we've built using Vanna. You can use 
 
 ## Getting started
 See the [documentation](https://vanna.ai/docs/) for specifics on your desired database, LLM, etc.
+
+For containerized deployments, see our [Configuration Guide](docker/CONFIG.md) for detailed information about environment variables, secrets management, and configuration options.
 
 If you want to get a feel for how it works after training, you can try this [Colab notebook](https://vanna.ai/docs/app/).
 
@@ -242,7 +243,7 @@ Fine-Tuning
 ## Why Vanna?
 
 1. **High accuracy on complex datasets.**
-    - Vanna’s capabilities are tied to the training data you give it
+    - Vanna's capabilities are tied to the training data you give it
     - More training data means better accuracy for large and complex datasets
 2. **Secure and private.**
     - Your database contents are never sent to the LLM or the vector database
@@ -268,3 +269,37 @@ https://github.com/vanna-ai/vanna/assets/7146154/eb90ee1e-aa05-4740-891a-4fc10e6
  - [Full Documentation](https://vanna.ai/docs/)
  - [Website](https://vanna.ai)
  - [Discord group for support](https://discord.gg/qUZYKHremx)
+
+## Database Configuration
+Vanna now supports a flexible configuration system for database connections. You can specify your database configuration when initializing Vanna:
+
+### BigQuery Configuration
+```python
+config = {
+    "database": {
+        "db_type": "bigquery",
+        "project_id": "your-project-id",
+        "cred_file_path": "path/to/credentials.json"  # optional if using default credentials
+    }
+}
+vn = MyVanna(config=config)
+```
+
+### SQL Server Configuration
+```python
+config = {
+    "database": {
+        "db_type": "sqlserver",
+        "odbc_conn_str": "Driver={ODBC Driver 17 for SQL Server};Server=your-server;Database=your-database;UID=your-username;PWD=your-password"
+    }
+}
+vn = MyVanna(config=config)
+```
+
+The database configuration system allows you to:
+- Choose between different database types (currently supporting BigQuery and SQL Server)
+- Provide database-specific configuration options
+- Handle authentication and connection details securely
+- Automatically set up the appropriate database dialect for SQL generation
+
+For more detailed configuration options and environment variable support, see our [Configuration Guide](docker/CONFIG.md).

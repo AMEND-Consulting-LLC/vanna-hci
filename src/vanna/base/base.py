@@ -80,6 +80,17 @@ class VannaBase(ABC):
         self.dialect = self.config.get("dialect", "SQL")
         self.language = self.config.get("language", None)
         self.max_tokens = self.config.get("max_tokens", 14000)
+        
+        # Initialize database connection if configuration is provided
+        if "database" in config:
+            from ..config.database_config import create_database_config
+            from ..config.database_manager import DatabaseManager
+            
+            db_config = create_database_config(config["database"])
+            db_manager = DatabaseManager(db_config)
+            self.run_sql = db_manager.run_sql
+            self.run_sql_is_set = True
+            self.dialect = db_manager.dialect
 
     def log(self, message: str, title: str = "Info"):
         print(f"{title}: {message}")

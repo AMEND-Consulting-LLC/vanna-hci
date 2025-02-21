@@ -1,28 +1,28 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from typing import Dict, List, Union
+import dataclasses
 
 
-@dataclass
+@dataclasses.dataclass
 class Status:
     success: bool
     message: str
 
 
-@dataclass
+@dataclasses.dataclass
 class StatusWithId:
     success: bool
     message: str
     id: str
 
 
-@dataclass
+@dataclasses.dataclass
 class QuestionList:
     questions: List[FullQuestionDocument]
 
 
-@dataclass
+@dataclasses.dataclass
 class FullQuestionDocument:
     id: QuestionId
     question: Question
@@ -31,75 +31,75 @@ class FullQuestionDocument:
     plotly: PlotlyResult | None
 
 
-@dataclass
+@dataclasses.dataclass
 class QuestionSQLPair:
     question: str
     sql: str
     tag: Union[str, None]
 
 
-@dataclass
+@dataclasses.dataclass
 class Organization:
     name: str
     user: str | None
     connection: Connection | None
 
 
-@dataclass
+@dataclasses.dataclass
 class OrganizationList:
     organizations: List[str]
 
 
-@dataclass
+@dataclasses.dataclass
 class QuestionStringList:
     questions: List[str]
 
 
-@dataclass
+@dataclasses.dataclass
 class Visibility:
     visibility: bool
 
 
-@dataclass
+@dataclasses.dataclass
 class UserEmail:
     email: str
 
 
-@dataclass
+@dataclasses.dataclass
 class NewOrganization:
     org_name: str
     db_type: str
 
 
-@dataclass
+@dataclasses.dataclass
 class NewOrganizationMember:
     org_name: str
     email: str
     is_admin: bool
 
 
-@dataclass
+@dataclasses.dataclass
 class UserOTP:
     email: str
     otp: str
 
 
-@dataclass
+@dataclasses.dataclass
 class ApiKey:
     key: str
 
 
-@dataclass
+@dataclasses.dataclass
 class QuestionId:
     id: str
 
 
-@dataclass
+@dataclasses.dataclass
 class Question:
     question: str
 
 
-@dataclass
+@dataclasses.dataclass
 class QuestionCategory:
     question: str
     category: str
@@ -114,30 +114,30 @@ class QuestionCategory:
     REVIEWED_AND_UPDATED = "Reviewed and Updated"
 
 
-@dataclass
+@dataclasses.dataclass
 class AccuracyStats:
     num_questions: int
     data: Dict[str, int]
 
 
-@dataclass
+@dataclasses.dataclass
 class Followup:
     followup: str
 
 
-@dataclass
+@dataclasses.dataclass
 class QuestionEmbedding:
     question: Question
     embedding: List[float]
 
 
-@dataclass
+@dataclasses.dataclass
 class Connection:
     # TODO: implement
     pass
 
 
-@dataclass
+@dataclasses.dataclass
 class SQLAnswer:
     raw_answer: str
     prefix: str
@@ -145,12 +145,12 @@ class SQLAnswer:
     sql: str
 
 
-@dataclass
+@dataclasses.dataclass
 class Explanation:
     explanation: str
 
 
-@dataclass
+@dataclasses.dataclass
 class DataResult:
     question: str | None
     sql: str | None
@@ -159,18 +159,18 @@ class DataResult:
     correction_attempts: int
 
 
-@dataclass
+@dataclasses.dataclass
 class PlotlyResult:
     plotly_code: str
 
 
-@dataclass
+@dataclasses.dataclass
 class WarehouseDefinition:
     name: str
     tables: List[TableDefinition]
 
 
-@dataclass
+@dataclasses.dataclass
 class TableDefinition:
     schema_name: str
     table_name: str
@@ -178,7 +178,7 @@ class TableDefinition:
     columns: List[ColumnDefinition]
 
 
-@dataclass
+@dataclasses.dataclass
 class ColumnDefinition:
     name: str
     type: str
@@ -188,30 +188,30 @@ class ColumnDefinition:
     foreign_key_column: str
 
 
-@dataclass
+@dataclasses.dataclass
 class Diagram:
     raw: str
     mermaid_code: str
 
 
-@dataclass
+@dataclasses.dataclass
 class StringData:
     data: str
 
 
-@dataclass
+@dataclasses.dataclass
 class DataFrameJSON:
     data: str
 
 
-@dataclass
+@dataclasses.dataclass
 class TrainingData:
     questions: List[dict]
     ddl: List[str]
     documentation: List[str]
 
 
-@dataclass
+@dataclasses.dataclass
 class TrainingPlanItem:
     item_type: str
     item_group: str
