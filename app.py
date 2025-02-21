@@ -10,6 +10,20 @@ from vanna.flask.db_models import init_db
 import os
 from openai import AzureOpenAI
 from flask_session import Session
+from flask import Flask, render_template, request, redirect, url_for, flash
+from flask_login import LoginManager, current_user
+from vanna.flask.models import db, User
+from vanna.flask.auth import auth as auth_blueprint
+from vanna.flask.admin import admin as admin_blueprint
+from vanna.flask.security import SecurityMiddleware
+from vanna.flask.letsencrypt import setup_letsencrypt
+from vanna.flask.security import SecurityMiddleware
+from vanna.flask.letsencrypt import setup_letsencrypt
+from dotenv import load_dotenv
+from vanna.flask.admin_routes import init_admin_routes
+
+# Load environment variables
+load_dotenv()
 
 # Initialize ChromaDB with persistent storage
 config = {
@@ -127,61 +141,83 @@ api_key_manager = APIKeyManager(app.flask_app)
 # Initialize user management routes
 init_user_routes(app.flask_app, Session)
 
-if __name__ == "__main__":
-    # Verify Azure OpenAI configuration
-    required_env_vars = [
-        "AZURE_OPENAI_ENDPOINT",
-        "AZURE_OPENAI_API_KEY",
-        "AZURE_OPENAI_DEPLOYMENT",
-        "AZURE_CLIENT_ID",
-        "AZURE_CLIENT_SECRET",
-        "AZURE_TENANT_ID",
-        "API_SIGNING_SECRET"
-    ]
+# Initialize admin routes
+init_admin_routes(app.flask_app, Session)
+
+def create_app():
+    app = Flask(__name__)
     
-    missing_vars = [var for var in required_env_vars if not os.getenv(var)]
-    if missing_vars:
-        print("Error: Missing required environment variables:")
-        for var in missing_vars:
-            print(f"- {var}")
-        exit(1)
-    
-    # Configure SSL context
-    ssl_context = None
-    
-    # Try Let's Encrypt first if enabled
-    if letsencrypt_config["enabled"]:
-        if not all([letsencrypt_config["domains"], letsencrypt_config["email"]]):
-            print("Error: LETSENCRYPT_DOMAINS and LETSENCRYPT_EMAIL are required when USE_LETSENCRYPT is true")
-            exit(1)
-            
-        print("Setting up Let's Encrypt certificates...")
-        ssl_config = setup_letsencrypt(
-            app_domains=letsencrypt_config["domains"],
-            contact_email=letsencrypt_config["email"],
-            cert_dir="/certs",
-            staging=letsencrypt_config["staging"]
-        )
-        
-        if ssl_config:
-            print("Successfully obtained Let's Encrypt certificates")
-            ssl_context = configure_ssl_context(**ssl_config)
-        else:
-            print("Failed to obtain Let's Encrypt certificates")
-            exit(1)
-            
-    # Fall back to manual certificates if Let's Encrypt is disabled
-    elif all([security_config["ssl_cert"], security_config["ssl_key"]]):
-        print("Using provided SSL certificates")
-        ssl_context = configure_ssl_context(
-            cert_path=security_config["ssl_cert"],
-            key_path=security_config["ssl_key"],
-            password=security_config["ssl_password"]
-        )
-    
-    # Run the Flask app
+    # Configure app
+    app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'dev-key-change-this')
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///app.db')
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+    # Security configuration
+    security_config = {
+        'CORS_ENABLED': os.getenv('CORS_ENABLED', 'false').lower() == 'true',
+        'CORS_ORIGINS': os.getenv('CORS_ORIGINS', '*').split(','),
+        'RATE_LIMIT_ENABLED': os.getenv('RATE_LIMIT_ENABLED', 'true').lower() == 'true',
+        'RATE_LIMIT': int(os.getenv('RATE_LIMIT', '100')),
+        'RATE_LIMIT_PERIOD': int(os.getenv('RATE_LIMIT_PERIOD', '3600')),
+        'FORCE_HTTPS': os.getenv('FORCE_HTTPS', 'false').lower() == 'true',
+        'HSTS_ENABLED': os.getenv('HSTS_ENABLED', 'false').lower() == 'true',
+    }
+
+    # Initialize security middleware
+    SecurityMiddleware(app, security_config)
+
+    # Initialize database
+    db.init_app(app)
+
+    # Initialize login manager
+    login_manager = LoginManager()
+    login_manager.login_view = 'auth.login'
+    login_manager.init_app(app)
+
+    @login_manager.user_loader
+    def load_user(user_id):
+        return User.query.get(int(user_id))
+
+    # Register blueprints
+    app.register_blueprint(auth_blueprint)
+    app.register_blueprint(admin_blueprint)
+
+    # Create database tables
+    with app.app_context():
+        db.create_all()
+        # Create admin user if none exists
+        if not User.query.filter_by(role='admin').first():
+            admin_email = os.getenv('ADMIN_EMAIL')
+            admin_name = os.getenv('ADMIN_NAME', 'Admin User')
+            if admin_email:
+                admin = User(
+                    email=admin_email,
+                    name=admin_name,
+                    role='admin',
+                    is_active=True
+                )
+                db.session.add(admin)
+                db.session.commit()
+
+    # Root route
+    @app.route('/')
+    def index():
+        if current_user.is_authenticated:
+            if current_user.role == 'admin':
+                return redirect(url_for('admin.dashboard'))
+            return redirect(url_for('dashboard'))  # Regular user dashboard
+        return redirect(url_for('auth.login'))
+
+    # Configure SSL if enabled
+    if os.getenv('USE_LETSENCRYPT', 'false').lower() == 'true':
+        setup_letsencrypt(app)
+
+    return app
+
+if __name__ == '__main__':
+    app = create_app()
     app.run(
-        host="0.0.0.0",
-        port=8000,
-        ssl_context=ssl_context
+        host=os.getenv('FLASK_HOST', '0.0.0.0'),
+        port=int(os.getenv('FLASK_PORT', 5000)),
+        debug=os.getenv('FLASK_DEBUG', 'false').lower() == 'true'
     ) 

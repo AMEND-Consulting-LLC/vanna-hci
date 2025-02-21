@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="flex justify-between items-center mb-8">
+        <h1 class="text-3xl font-bold">Admin Dashboard</h1>
+        <div class="flex space-x-4">
+            <button onclick="showUserModal()" class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+                Add User
+            </button>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="mb-8">
+        <div class="border-b border-gray-200">
+            <nav class="-mb-px flex" aria-label="Tabs">
+                <button onclick="switchTab('users')" class="tab-button active" data-tab="users">
+                    Users
+                </button>
+                <button onclick="switchTab('api-keys')" class="tab-button" data-tab="api-keys">
+                    API Keys
+                </button>
+                <button onclick="switchTab('audit-logs')" class="tab-button" data-tab="audit-logs">
+                    Audit Logs
+                </button>
+            </nav>
+        </div>
+    </div>
+
+    <!-- Users Tab -->
+    <div id="users-tab" class="tab-content active">
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="users-table-body">
+                    <!-- Users will be loaded here -->
+                </tbody>
+            </table>
+            <div class="px-6 py-4 flex justify-between items-center bg-gray-50">
+                <div class="text-sm text-gray-500">
+                    Showing <span id="user-count">0</span> users
+                </div>
+                <div class="flex space-x-2">
+                    <button onclick="changePage('prev')" class="pagination-button">Previous</button>
+                    <span id="current-page" class="px-3 py-1">1</span>
+                    <button onclick="changePage('next')" class="pagination-button">Next</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- API Keys Tab -->
+    <div id="api-keys-tab" class="tab-content hidden">
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Key (Masked)</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Expires</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="api-keys-table-body">
+                    <!-- API keys will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Audit Logs Tab -->
+    <div id="audit-logs-tab" class="tab-content hidden">
+        <div class="bg-white shadow overflow-hidden sm:rounded-lg">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Timestamp</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Details</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">IP Address</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200" id="audit-logs-table-body">
+                    <!-- Audit logs will be loaded here -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- User Modal -->
+<div id="user-modal" class="modal hidden">
+    <div class="modal-content">
+        <h2 class="text-2xl font-bold mb-4">Add/Edit User</h2>
+        <form id="user-form" onsubmit="handleUserSubmit(event)">
+            <input type="hidden" id="user-id">
+            <div class="mb-4">
+                <label for="name" class="block text-sm font-medium text-gray-700">Name</label>
+                <input type="text" id="name" name="name" required class="form-input">
+            </div>
+            <div class="mb-4">
+                <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+                <input type="email" id="email" name="email" required class="form-input">
+            </div>
+            <div class="mb-4">
+                <label for="role" class="block text-sm font-medium text-gray-700">Role</label>
+                <select id="role" name="role" required class="form-select">
+                    <option value="user">User</option>
+                    <option value="power_user">Power User</option>
+                    <option value="admin">Admin</option>
+                </select>
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button type="button" onclick="closeUserModal()" class="secondary-button">Cancel</button>
+                <button type="submit" class="primary-button">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- API Key Modal -->
+<div id="api-key-modal" class="modal hidden">
+    <div class="modal-content">
+        <h2 class="text-2xl font-bold mb-4">Create API Key</h2>
+        <form id="api-key-form" onsubmit="handleApiKeySubmit(event)">
+            <div class="mb-4">
+                <label for="key-description" class="block text-sm font-medium text-gray-700">Description</label>
+                <input type="text" id="key-description" name="description" required class="form-input">
+            </div>
+            <div class="mb-4">
+                <label for="key-role" class="block text-sm font-medium text-gray-700">Role</label>
+                <select id="key-role" name="role" required class="form-select">
+                    <option value="user">User</option>
+                    <option value="power_user">Power User</option>
+                </select>
+            </div>
+            <div class="mb-4">
+                <label for="expires-in" class="block text-sm font-medium text-gray-700">Expires In (Days)</label>
+                <input type="number" id="expires-in" name="expires_in_days" min="1" value="30" class="form-input">
+            </div>
+            <div class="flex justify-end space-x-4">
+                <button type="button" onclick="closeApiKeyModal()" class="secondary-button">Cancel</button>
+                <button type="submit" class="primary-button">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentPage = 1;
+const perPage = 50;
+
+// Tab Switching
+function switchTab(tabName) {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+    document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+    
+    document.getElementById(`${tabName}-tab`).classList.remove('hidden');
+    document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+    
+    if (tabName === 'users') loadUsers();
+    else if (tabName === 'api-keys') loadApiKeys();
+    else if (tabName === 'audit-logs') loadAuditLogs();
+}
+
+// User Management
+async function loadUsers() {
+    try {
+        const response = await fetch(`/api/users?page=${currentPage}&per_page=${perPage}`);
+        const users = await response.json();
+        
+        const tbody = document.getElementById('users-table-body');
+        tbody.innerHTML = users.map(user => `
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">${user.name}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${user.email}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${user.role}</td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                        ${user.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button onclick="editUser(${user.id})" class="text-indigo-600 hover:text-indigo-900 mr-4">Edit</button>
+                    <button onclick="toggleUserStatus(${user.id}, ${!user.is_active})" class="text-${user.is_active ? 'red' : 'green'}-600 hover:text-${user.is_active ? 'red' : 'green'}-900">
+                        ${user.is_active ? 'Deactivate' : 'Activate'}
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+        
+        document.getElementById('user-count').textContent = users.length;
+    } catch (error) {
+        console.error('Error loading users:', error);
+    }
+}
+
+// API Key Management
+async function loadApiKeys() {
+    try {
+        const response = await fetch('/api/users/api-keys');
+        const keys = await response.json();
+        
+        const tbody = document.getElementById('api-keys-table-body');
+        tbody.innerHTML = keys.map(key => `
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">${key.user_email}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${maskApiKey(key.key)}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${key.role}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${formatDate(key.created_at)}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${key.expires_at ? formatDate(key.expires_at) : 'Never'}</td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button onclick="revokeApiKey('${key.key}')" class="text-red-600 hover:text-red-900">Revoke</button>
+                </td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading API keys:', error);
+    }
+}
+
+// Audit Log Management
+async function loadAuditLogs() {
+    try {
+        const response = await fetch('/api/users/audit');
+        const logs = await response.json();
+        
+        const tbody = document.getElementById('audit-logs-table-body');
+        tbody.innerHTML = logs.map(log => `
+            <tr>
+                <td class="px-6 py-4 whitespace-nowrap">${formatDate(log.timestamp)}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${log.user_email}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${log.event_type}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${log.details}</td>
+                <td class="px-6 py-4 whitespace-nowrap">${log.ip_address}</td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading audit logs:', error);
+    }
+}
+
+// Utility Functions
+function formatDate(dateString) {
+    return new Date(dateString).toLocaleString();
+}
+
+function maskApiKey(key) {
+    return `${key.substr(0, 8)}...${key.substr(-8)}`;
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', () => {
+    loadUsers();
+});
+</script>
+{% endblock %} 
