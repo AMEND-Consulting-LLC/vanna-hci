@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  vanna:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "${VANNA_PORT:-8000}:8000"
+    environment:
+      # Core Configuration
+      - VANNA_API_KEY=${VANNA_API_KEY}
+      - VANNA_MODEL=${VANNA_MODEL:-gpt-4}
+      - VANNA_VECTOR_STORE=${VANNA_VECTOR_STORE:-chromadb}
+      - VANNA_HOST=0.0.0.0
+      - VANNA_PORT=8000
+      
+      # Vector Store Configuration
+      - VANNA_VECTOR_STORE_API_KEY=${VANNA_VECTOR_STORE_API_KEY}
+      - VANNA_VECTOR_STORE_URL=${VANNA_VECTOR_STORE_URL}
+      - VANNA_VECTOR_STORE_NAMESPACE=${VANNA_VECTOR_STORE_NAMESPACE:-vanna}
+      
+      # Database Configuration
+      - VANNA_DB_TYPE=${VANNA_DB_TYPE}
+      - VANNA_DB_HOST=${VANNA_DB_HOST}
+      - VANNA_DB_PORT=${VANNA_DB_PORT}
+      - VANNA_DB_NAME=${VANNA_DB_NAME}
+      - VANNA_DB_USER=${VANNA_DB_USER}
+      - VANNA_DB_PASSWORD=${VANNA_DB_PASSWORD}
+    volumes:
+      - ../data:/app/data
+      - ../logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 5s
+    networks:
+      - vanna-network
+
+  # Optional ChromaDB service (default vector store)
+  chromadb:
+    image: chromadb/chroma:latest
+    volumes:
+      - ../vector_data:/chroma/data
+    environment:
+      - ALLOW_RESET=false
+      - ANONYMIZED_TELEMETRY=false
+    ports:
+      - "8001:8000"
+    networks:
+      - vanna-network
+    restart: unless-stopped
+
+networks:
+  vanna-network:
+    driver: bridge 
