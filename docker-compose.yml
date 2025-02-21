@@ -25,9 +25,25 @@ services:
       - SESSION_TYPE=filesystem
       - FLASK_ENV=${FLASK_ENV:-production}
       
+      # Security Configuration
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - RATE_LIMIT=${RATE_LIMIT:-100}
+      - FORCE_HTTPS=${FORCE_HTTPS:-true}
+      - TRUSTED_PROXIES=${TRUSTED_PROXIES:-1}
+      - SSL_CERT_PATH=${SSL_CERT_PATH:-/certs/cert.pem}
+      - SSL_KEY_PATH=${SSL_KEY_PATH:-/certs/key.pem}
+      - SSL_KEY_PASSWORD=${SSL_KEY_PASSWORD}
+      
+      # Database Configuration
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-vanna}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-vanna}
+      
     volumes:
       - ./data:/app/data
       - ./sessions:/app/flask_session
+      - ./certs:/certs:ro  # Mount SSL certificates as read-only
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
@@ -35,6 +51,41 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    security_opt:
+      - no-new-privileges:true  # Prevent privilege escalation
+    read_only: true  # Make container filesystem read-only
+    tmpfs:
+      - /tmp  # Temporary storage for runtime
+      - /run
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  db:
+    image: supabase/postgres:15.1.0.117
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-vanna}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB:-vanna}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"  # Only expose to localhost
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-vanna}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   chromadb:
     image: chromadb/chroma:latest
@@ -43,12 +94,43 @@ services:
       - CHROMA_SERVER_AUTH_CREDENTIALS_FILE=/auth/credentials.json
     volumes:
       - ./data/chromadb:/chroma/data
-      - ./auth:/auth
+      - ./auth:/auth:ro  # Mount auth file as read-only
     ports:
-      - "8001:8000"
+      - "127.0.0.1:8001:8000"  # Only expose to localhost
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
       interval: 30s
       timeout: 10s
-      retries: 3 
+      retries: 3
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /run
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: vanna-net
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.28.0.0/16
+          ip_range: 172.28.5.0/24
+          gateway: 172.28.5.254
+
+volumes:
+  postgres_data:
+    driver: local
+  data:
+    driver: local
+  sessions:
+    driver: local 

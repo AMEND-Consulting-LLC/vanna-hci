@@ -3,9 +3,11 @@ import os
 from typing import Any, Dict
 import msal
 import flask
-from flask import redirect, url_for, session, request
+from flask import redirect, url_for, session, request, abort
 import requests
 from .auth import AuthInterface
+from .user_management import UserManager
+from .db_models import init_db
 
 class AzureAuth(AuthInterface):
     def __init__(self, config: Dict[str, Any]):
@@ -35,32 +37,46 @@ class AzureAuth(AuthInterface):
             client_credential=self.client_secret,
             authority=f"https://login.microsoftonline.com/{self.tenant_id}"
         )
+        
+        # Initialize user manager
+        self.user_manager = None
+    
+    def init_app(self, app):
+        """Initialize with Flask app to set up user management"""
+        Session = init_db(app.config)
+        self.user_manager = UserManager(Session)
 
     def get_user(self, flask_request) -> Any:
         """Get user information from session"""
         if 'user' not in session:
             return None
+            
+        # Get user from database if we have their Azure ID
+        if self.user_manager and 'id' in session['user']:
+            return self.user_manager.get_user_by_azure_id(session['user']['id'])
+            
         return session['user']
 
     def is_logged_in(self, user: Any) -> bool:
-        """Check if user is logged in"""
-        return user is not None
+        """Check if user is logged in and active"""
+        return user is not None and (
+            not hasattr(user, 'is_active') or user.is_active
+        )
 
     def override_config_for_user(self, user: Any, config: dict) -> dict:
         """Override configuration based on user roles/permissions"""
         if not user:
             return config
         
-        # Add user-specific configurations
         user_config = config.copy()
         
-        # Example: Add user's organization info if available
-        if 'organization' in user:
-            user_config['organization'] = user['organization']
-            
-        # Example: Add user's role-based permissions
-        if 'roles' in user:
-            user_config['user_roles'] = user['roles']
+        # Add user's role and permissions
+        if hasattr(user, 'role'):
+            user_config['user_role'] = user.role
+            user_config['can_create_api_keys'] = user.can_create_api_keys
+            user_config['can_view_audit_logs'] = user.can_view_audit_logs
+            user_config['can_manage_users'] = user.can_manage_users
+            user_config['api_rate_limit'] = user.api_rate_limit
         
         return user_config
 
@@ -110,14 +126,27 @@ class AzureAuth(AuthInterface):
         user_info = self._get_user_info(token_response['access_token'])
         
         if user_info:
-            # Store user info in session
-            session['user'] = {
-                'id': user_info.get('id'),
-                'email': user_info.get('mail') or user_info.get('userPrincipalName'),
-                'name': user_info.get('displayName'),
-                'roles': user_info.get('roles', []),
-                'organization': user_info.get('organization', {})
-            }
+            if self.user_manager:
+                # Create or update user in database
+                user = self.user_manager.get_or_create_user(user_info)
+                if not user.is_active:
+                    return "Error: Your account has been deactivated"
+                
+                # Store minimal user info in session
+                session['user'] = {
+                    'id': user.azure_id,
+                    'email': user.email,
+                    'name': user.name,
+                    'role': user.role
+                }
+            else:
+                # Fallback to session-only storage if no user manager
+                session['user'] = {
+                    'id': user_info.get('id'),
+                    'email': user_info.get('mail') or user_info.get('userPrincipalName'),
+                    'name': user_info.get('displayName'),
+                    'roles': user_info.get('roles', [])
+                }
             return redirect('/')
         
         return "Error: Could not get user information"

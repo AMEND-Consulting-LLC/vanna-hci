@@ -1,118 +1,344 @@
-# Docker Setup for Vanna AI
+# Docker Setup Guide
 
-This directory contains the Docker configuration for running the Vanna AI text2sql platform.
+This guide explains how to set up and run the Vanna.AI application using Docker.
 
 ## Prerequisites
 
 - Docker Engine 20.10+
 - Docker Compose 2.0+
+- Azure account with:
+  - Azure Entra ID application registration
+  - Azure OpenAI service
 - Git
 
 ## Quick Start
 
-1. Copy the environment template:
-   ```bash
-   cp .env.template .env
-   ```
+1. Clone the repository and navigate to the project directory:
+```bash
+git clone <repository-url>
+cd vanna-hci
+```
 
-2. Edit the `.env` file with your configuration:
-   - Add your API keys
-   - Configure database connection
-   - Adjust other settings as needed
+2. Run the environment setup script:
+```bash
+chmod +x scripts/setup_env.sh
+./scripts/setup_env.sh
+```
 
-3. Build and start the containers:
-   ```bash
-   docker-compose up -d
-   ```
+3. Configure your environment:
+   - Copy `.env.docker.template` to `.env.docker`
+   - Update the following required variables:
+     ```bash
+     # Azure SSO Authentication
+     AZURE_CLIENT_ID=your-client-id
+     AZURE_CLIENT_SECRET=your-client-secret
+     AZURE_TENANT_ID=your-tenant-id
+     AZURE_REDIRECT_URI=your-callback-url
 
-4. Check the status:
-   ```bash
-   docker-compose ps
-   ```
+     # Azure OpenAI Configuration
+     AZURE_OPENAI_ENDPOINT=your-azure-openai-endpoint
+     AZURE_OPENAI_API_KEY=your-azure-openai-key
 
-## Configuration
+     # Database Configuration
+     POSTGRES_PASSWORD=your-secure-password  # Use a strong password
 
-For detailed configuration information, including environment variables, secrets management, and validation rules, see our comprehensive [Configuration Guide](CONFIG.md).
+     # Security
+     FLASK_SECRET_KEY=your-secret-key
+     API_SIGNING_SECRET=your-signing-secret
+     ```
+
+4. Start the services:
+```bash
+docker-compose --env-file .env.docker up -d
+```
+
+5. Check the initial admin API key:
+```bash
+docker exec vanna-hci-vanna-1 cat /app/data/admin_key.txt
+```
+
+## Architecture
+
+The application consists of three main services:
+
+1. **Vanna API Service**:
+   - Flask application with Azure SSO integration
+   - API security middleware
+   - SSL/TLS support with Let's Encrypt
+
+2. **Database Service (Supabase PostgreSQL)**:
+   - Persistent data storage
+   - API key management
+   - Audit logging
+   - Compatible with Supabase hosted service
+
+3. **ChromaDB Service**:
+   - Vector database for AI operations
+   - Authenticated access
+   - Persistent storage
+
+## Database Configuration
+
+### Local Development
+```bash
+# Default SQLite configuration
+DATABASE_URL=sqlite:///data/api_keys.db
+```
+
+### Production (PostgreSQL)
+```bash
+# PostgreSQL configuration
+POSTGRES_USER=vanna
+POSTGRES_PASSWORD=your-secure-password
+POSTGRES_DB=vanna
+```
+
+### Database Initialization
+The database is automatically initialized when the container starts:
+- Tables are created if they don't exist
+- Initial admin API key is generated
+- Basic schema is set up
+
+### Data Persistence
+Database data is stored in a Docker volume:
+```yaml
+volumes:
+  postgres_data:
+    driver: local
+```
+
+## API Security Features
+
+### API Key Management
+
+1. **Create a new API key**:
+```bash
+curl -X POST http://localhost:8000/api/keys \
+  -H "X-API-Key: YOUR_ADMIN_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "role": "user",
+    "description": "Development key",
+    "expires_in_days": 30
+  }'
+```
+
+2. **List API keys**:
+```bash
+curl http://localhost:8000/api/keys \
+  -H "X-API-Key: YOUR_ADMIN_KEY"
+```
+
+3. **Revoke an API key**:
+```bash
+curl -X DELETE http://localhost:8000/api/keys/KEY_TO_REVOKE \
+  -H "X-API-Key: YOUR_ADMIN_KEY"
+```
+
+### Request Signing
+
+All API requests must be signed. Example Python code:
+```python
+import time
+import hmac
+import hashlib
+import requests
+
+def sign_request(method, path, body, secret):
+    timestamp = str(int(time.time()))
+    message = f"{timestamp}{method}{path}"
+    if body:
+        message += body
+    
+    signature = hmac.new(
+        secret.encode('utf-8'),
+        message.encode('utf-8'),
+        hashlib.sha256
+    ).hexdigest()
+    
+    return {
+        'X-Request-Timestamp': timestamp,
+        'X-Request-Signature': signature
+    }
+
+# Example request
+api_key = "your-api-key"
+secret = "your-signing-secret"
+data = {"query": "SELECT * FROM users"}
+
+headers = sign_request('POST', '/api/query', json.dumps(data), secret)
+headers['X-API-Key'] = api_key
+headers['Content-Type'] = 'application/json'
+
+response = requests.post(
+    'http://localhost:8000/api/query',
+    headers=headers,
+    json=data
+)
+```
+
+### Security Features
+
+1. **API Key Security**:
+   - Role-based access control
+   - Key expiration
+   - Rate limiting
+   - Audit logging
+
+2. **Request Security**:
+   - Request signing
+   - Timestamp validation
+   - Replay attack prevention
+   - Input validation
+
+3. **Output Security**:
+   - Response sanitization
+   - Content security headers
+   - CORS protection
+
+## Environment Variables
+
+### Required Variables
+```bash
+# Azure SSO Authentication
+AZURE_CLIENT_ID          # Your Azure AD application client ID
+AZURE_CLIENT_SECRET      # Your Azure AD application client secret
+AZURE_TENANT_ID         # Your Azure AD tenant ID
+AZURE_REDIRECT_URI      # OAuth callback URL
+
+# Azure OpenAI Configuration
+AZURE_OPENAI_ENDPOINT   # Your Azure OpenAI service endpoint
+AZURE_OPENAI_API_KEY    # Your Azure OpenAI API key
+
+# Security
+FLASK_SECRET_KEY        # Flask session secret key
+API_SIGNING_SECRET      # API request signing secret
+
+# Database
+POSTGRES_PASSWORD       # PostgreSQL password
+```
+
+### Optional Variables with Defaults
+```bash
+# Docker Configuration
+PORT=8000
+FLASK_ENV=production
+
+# Database Configuration
+POSTGRES_USER=vanna
+POSTGRES_DB=vanna
+
+# Security Configuration
+RATE_LIMIT=100
+FORCE_HTTPS=true
+TRUSTED_PROXIES=1
+```
 
 ## Directory Structure
 
-- `Dockerfile`: Multi-stage build configuration
-- `docker-compose.yml`: Service orchestration
-- `.env.template`: Environment variable template
-- `CONFIG.md`: Detailed configuration documentation
-- `README.md`: This documentation
+```
+.
+├── auth/                  # ChromaDB authentication
+│   └── credentials.json
+├── data/
+│   ├── chromadb/         # ChromaDB persistent storage
+│   └── admin_key.txt     # Initial admin API key
+├── sessions/             # Flask session storage
+├── certs/               # SSL certificates
+├── .env.docker         # Docker environment configuration
+└── docker-compose.yml  # Docker Compose configuration
+```
 
-## Volumes
+## Security Considerations
 
-The following volumes are created:
-- `../data`: Application data
-- `../logs`: Application logs
-- `../vector_data`: Vector store data (when using ChromaDB)
+1. **Environment Variables**:
+   - Never commit `.env.docker` to version control
+   - Use secrets management in production
+   - Regularly rotate secrets and API keys
 
-## Networks
+2. **Database Security**:
+   - Use strong passwords
+   - Limit database access to containers
+   - Regular security updates
+   - Monitor database logs
 
-- `vanna-network`: Bridge network for container communication
+3. **API Security**:
+   - Rotate API keys regularly
+   - Monitor API usage
+   - Review audit logs
+   - Set appropriate rate limits
+
+4. **Network Security**:
+   - Use HTTPS in production
+   - Configure CORS appropriately
+   - Implement proper firewalls
+   - Regular security audits
 
 ## Health Checks
 
-The application includes health checks that run every 30 seconds. You can monitor the health status using:
+The Docker Compose configuration includes health checks for all services:
+
+1. **Vanna API**:
 ```bash
-docker-compose ps
+curl -f http://localhost:8000/health
+```
+
+2. **PostgreSQL**:
+```bash
+pg_isready -U vanna
+```
+
+3. **ChromaDB**:
+```bash
+curl -f http://localhost:8001/api/v1/heartbeat
 ```
 
 ## Troubleshooting
 
-1. If the containers fail to start:
-   ```bash
-   docker-compose logs
-   ```
+1. **Check service status**:
+```bash
+docker-compose ps
+```
 
-2. To restart services:
-   ```bash
-   docker-compose restart
-   ```
+2. **View logs**:
+```bash
+# All services
+docker-compose logs -f
 
-3. To rebuild after changes:
-   ```bash
-   docker-compose build --no-cache
-   docker-compose up -d
-   ```
+# Specific service
+docker-compose logs -f vanna
+docker-compose logs -f db
+docker-compose logs -f chromadb
+```
 
-## Security Notes
+3. **Common Issues**:
+   - Database connection errors: Check credentials and network
+   - API key issues: Verify key exists and is active
+   - SSL/TLS errors: Check certificate configuration
+   - Permission errors: Check volume permissions
 
-1. Never commit the `.env` file
-2. Use Docker secrets for sensitive values (see [Configuration Guide](CONFIG.md))
-3. Regularly update base images
-4. Keep API keys confidential
-5. Follow security best practices in the configuration guide
+## Updates and Maintenance
 
-## Maintenance
+1. **Update images**:
+```bash
+docker-compose pull
+docker-compose up -d
+```
 
-1. Backup volumes regularly
-2. Monitor container logs
-3. Update dependencies as needed
-4. Check container health status
-5. Review configuration settings periodically
+2. **Backup database**:
+```bash
+docker exec -t vanna-hci-db-1 pg_dumpall -c -U vanna > dump.sql
+```
 
-## Configuration
+3. **Restore database**:
+```bash
+cat dump.sql | docker exec -i vanna-hci-db-1 psql -U vanna
+```
 
-### Environment Variables
+## Support
 
-#### Core Configuration
-- `VANNA_API_KEY`: Your LLM API key (e.g., OpenAI key)
-- `VANNA_MODEL`: Model to use (default: gpt-4)
-- `VANNA_VECTOR_STORE`: Vector store type (default: chromadb)
-- `VANNA_PORT`: Port to expose the service (default: 8000)
-
-#### Vector Store Configuration
-- `VANNA_VECTOR_STORE_API_KEY`: API key for vector store (if required)
-- `VANNA_VECTOR_STORE_URL`: Vector store endpoint URL
-- `VANNA_VECTOR_STORE_NAMESPACE`: Namespace for vector store
-
-#### Database Configuration
-- `VANNA_DB_TYPE`: Database type (e.g., postgres, mysql)
-- `VANNA_DB_HOST`: Database host
-- `VANNA_DB_PORT`: Database port
-- `VANNA_DB_NAME`: Database name
-- `VANNA_DB_USER`: Database user
-- `VANNA_DB_PASSWORD`: Database password 
+For issues and support:
+- Create an issue in the repository
+- Check the troubleshooting guide
+- Review Azure SSO documentation
+- Consult the API security documentation 
